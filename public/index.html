@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excuse Email Draft Tool</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel Standalone for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState } = React;
+        
+        function ExcuseEmailTool() {
+            // Form state
+            const [category, setCategory] = useState('Running Late');
+            const [tone, setTone] = useState('Playful');
+            const [seriousness, setSeriousness] = useState(3);
+            const [recipientName, setRecipientName] = useState('');
+            const [senderName, setSenderName] = useState('');
+            const [etaWhen, setEtaWhen] = useState('');
+            
+            // Output state
+            const [generatedEmail, setGeneratedEmail] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const [copySuccess, setCopySuccess] = useState(false);
+            
+            const categories = [
+                'Running Late',
+                'Missed Meeting',
+                'Deadline',
+                'WFH/OOO',
+                'Social',
+                'Travel'
+            ];
+            
+            const tones = ['Sincere', 'Playful', 'Corporate'];
+            
+            const seriousnessLabels = {
+                1: 'Very Silly 😄',
+                2: 'Lighthearted 😊',
+                3: 'Balanced ⚖️',
+                4: 'Professional 👔',
+                5: 'Very Serious 🎩'
+            };
+            
+            const handleGenerate = async () => {
+                // Validation
+                if (!recipientName.trim()) {
+                    setError('Please enter recipient name');
+                    return;
+                }
+                if (!senderName.trim()) {
+                    setError('Please enter sender name');
+                    return;
+                }
+                if (!etaWhen.trim()) {
+                    setError('Please enter ETA/When');
+                    return;
+                }
+                
+                setLoading(true);
+                setError(null);
+                setCopySuccess(false);
+                
+                try {
+                    const response = await fetch('/api/generate-excuse', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            category,
+                            tone,
+                            seriousness,
+                            recipient_name: recipientName,
+                            sender_name: senderName,
+                            eta_when: etaWhen
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to generate excuse');
+                    }
+                    
+                    const data = await response.json();
+                    setGeneratedEmail(data);
+                    
+                } catch (err) {
+                    setError(err.message || 'Failed to generate excuse. Please try again.');
+                    console.error('Error:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            const handleClear = () => {
+                setCategory('Running Late');
+                setTone('Playful');
+                setSeriousness(3);
+                setRecipientName('');
+                setSenderName('');
+                setEtaWhen('');
+                setGeneratedEmail(null);
+                setError(null);
+                setCopySuccess(false);
+            };
+            
+            const handleCopyToClipboard = async () => {
+                if (!generatedEmail) return;
+                
+                const emailText = `Subject: ${generatedEmail.subject}\n\n${generatedEmail.body}`;
+                
+                try {
+                    await navigator.clipboard.writeText(emailText);
+                    setCopySuccess(true);
+                    setTimeout(() => setCopySuccess(false), 3000);
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                    setError('Failed to copy to clipboard');
+                }
+            };
+            
+            return (
+                <div className="min-h-screen py-8 px-4">
+                    {/* Header */}
+                    <div className="max-w-7xl mx-auto mb-8 text-center">
+                        <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
+                            Excuse Email Draft Tool
+                        </h1>
+                        <p className="text-purple-100 text-lg">
+                            Powered by Databricks Model Serving LLM
+                        </p>
+                    </div>
+                    
+                    {/* Main Content - Two Column Layout */}
+                    <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        
+                        {/* Form Card - Left Panel */}
+                        <div className="bg-white rounded-lg shadow-2xl p-6">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                Configure Your Excuse
+                            </h2>
+                            
+                            <div className="space-y-5">
+                                {/* Category Dropdown */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Category
+                                    </label>
+                                    <select
+                                        value={category}
+                                        onChange={(e) => setCategory(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    >
+                                        {categories.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                
+                                {/* Tone Dropdown */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Tone
+                                    </label>
+                                    <select
+                                        value={tone}
+                                        onChange={(e) => setTone(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    >
+                                        {tones.map(t => (
+                                            <option key={t} value={t}>{t}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                
+                                {/* Seriousness Slider */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Seriousness Level: {seriousnessLabels[seriousness]}
+                                    </label>
+                                    <input
+                                        type="range"
+                                        min="1"
+                                        max="5"
+                                        value={seriousness}
+                                        onChange={(e) => setSeriousness(parseInt(e.target.value))}
+                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                                    />
+                                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                        <span>Very Silly</span>
+                                        <span>Very Serious</span>
+                                    </div>
+                                </div>
+                                
+                                {/* Recipient Name */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Recipient Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={recipientName}
+                                        onChange={(e) => setRecipientName(e.target.value)}
+                                        placeholder="e.g., Alex"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    />
+                                </div>
+                                
+                                {/* Sender Name */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Sender Name (Your Name)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={senderName}
+                                        onChange={(e) => setSenderName(e.target.value)}
+                                        placeholder="e.g., Mona"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    />
+                                </div>
+                                
+                                {/* ETA/When */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        ETA / When
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={etaWhen}
+                                        onChange={(e) => setEtaWhen(e.target.value)}
+                                        placeholder="e.g., 15 minutes, tomorrow, next week"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    />
+                                </div>
+                                
+                                {/* Buttons */}
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        onClick={handleGenerate}
+                                        disabled={loading}
+                                        className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-md hover:shadow-lg"
+                                    >
+                                        {loading ? (
+                                            <span className="flex items-center justify-center">
+                                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Generating...
+                                            </span>
+                                        ) : 'Generate Excuse'}
+                                    </button>
+                                    <button
+                                        onClick={handleClear}
+                                        disabled={loading}
+                                        className="flex-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-md hover:shadow-lg"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Output Card - Right Panel */}
+                        <div className="bg-white rounded-lg shadow-2xl p-6 flex flex-col">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                Generated Email
+                            </h2>
+                            
+                            <div className="flex-1 min-h-[400px] flex flex-col">
+                                {/* Error State */}
+                                {error && (
+                                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded mb-4">
+                                        <div className="flex">
+                                            <div className="flex-shrink-0">
+                                                <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                </svg>
+                                            </div>
+                                            <div className="ml-3">
+                                                <p className="text-sm text-red-700">{error}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {/* Loading State */}
+                                {loading && !error && (
+                                    <div className="flex-1 flex items-center justify-center">
+                                        <div className="text-center">
+                                            <svg className="animate-spin h-12 w-12 text-purple-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <p className="text-gray-600">Crafting your excuse...</p>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {/* Placeholder State */}
+                                {!loading && !generatedEmail && !error && (
+                                    <div className="flex-1 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg">
+                                        <div className="text-center p-8">
+                                            <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                            </svg>
+                                            <p className="text-gray-500 text-lg">
+                                                Your excuse email will appear here...
+                                            </p>
+                                            <p className="text-gray-400 text-sm mt-2">
+                                                Fill in the form and click "Generate Excuse"
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {/* Generated Email State */}
+                                {generatedEmail && !loading && (
+                                    <div className="flex-1 flex flex-col">
+                                        <div className="flex-1 bg-gray-50 rounded-lg p-6 mb-4 overflow-auto">
+                                            {/* Subject Line */}
+                                            <div className="mb-4 pb-4 border-b border-gray-200">
+                                                <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Subject</p>
+                                                <p className="text-lg font-bold text-gray-800">{generatedEmail.subject}</p>
+                                            </div>
+                                            
+                                            {/* Email Body */}
+                                            <div>
+                                                <p className="text-xs text-gray-500 font-semibold uppercase mb-2">Message</p>
+                                                <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                                                    {generatedEmail.body}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Copy Button */}
+                                        <button
+                                            onClick={handleCopyToClipboard}
+                                            className={`w-full py-3 px-6 rounded-lg font-semibold transition duration-200 shadow-md hover:shadow-lg ${
+                                                copySuccess 
+                                                    ? 'bg-green-500 hover:bg-green-600 text-white' 
+                                                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                                            }`}
+                                        >
+                                            {copySuccess ? (
+                                                <span className="flex items-center justify-center">
+                                                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                                                    </svg>
+                                                    Copied to Clipboard!
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center justify-center">
+                                                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                                    </svg>
+                                                    Copy to Clipboard
+                                                </span>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Footer */}
+                    <div className="max-w-7xl mx-auto mt-8 text-center text-purple-100 text-sm">
+                        <p>Built with FastAPI, React, and Tailwind CSS • Deployed on Databricks Apps</p>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ExcuseEmailTool />);
+    </script>
+</body>
+</html>
+
