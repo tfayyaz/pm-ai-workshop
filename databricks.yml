@@ -1,13 +1,13 @@
 bundle:
-  name: excuse-gen-app
+  name: excuse-gen-app-tfayyaz
 
 workspace:
   host: https://dbc-32cf6ae7-cf82.staging.cloud.databricks.com
 
 resources:
   apps:
-    excuse-gen-app:
-      name: excuse-gen-app
+    excuse-gen-app-tfayyaz:
+      name: excuse-gen-app-tfayyaz
       description: "Excuse Email Draft Tool powered by Databricks LLM"
       
       # Deploy from GitHub repository
