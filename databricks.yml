@@ -1,0 +1,33 @@
+bundle:
+  name: excuse-gen-app
+
+workspace:
+  host: https://dbc-32cf6ae7-cf82.staging.cloud.databricks.com
+
+resources:
+  apps:
+    excuse-gen-app:
+      name: excuse-gen-app
+      description: "Excuse Email Draft Tool powered by Databricks LLM"
+      
+      # Deploy from GitHub repository
+      source_code_path: ./
+      
+      resources:
+        - name: api_token
+          secret:
+            scope: excuse-gen-secrets
+            key: databricks-api-token
+            permission: READ
+
+targets:
+  dev:
+    mode: development
+    workspace:
+      host: https://dbc-32cf6ae7-cf82.staging.cloud.databricks.com
+  
+  prod:
+    mode: production
+    workspace:
+      host: https://dbc-32cf6ae7-cf82.staging.cloud.databricks.com
+

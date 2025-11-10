@@ -148,30 +148,22 @@ def build_prompt(request: ExcuseRequest) -> str:
         "Travel": f"experiencing travel delays and will arrive {request.eta_when}"
     }
     
-    prompt = f"""Generate a {seriousness_map[request.seriousness]} excuse email for the following scenario:
+    prompt = f"""Write an excuse email about {request.category.lower()} - {category_context[request.category]}.
 
-Category: {request.category}
-Situation: {category_context[request.category]}
-Tone: {request.tone} - {tone_instructions[request.tone]}
-Recipient: {request.recipient_name}
-Sender: {request.sender_name}
+Tone: {request.tone}
+Style: {seriousness_map[request.seriousness]}
+From: {request.sender_name}
+To: {request.recipient_name}
 
-Requirements:
-1. Generate ONLY a JSON object with exactly two fields: "subject" and "body"
-2. Subject line should be concise and appropriate for the category
-3. Email body should include:
-   - Appropriate greeting to {request.recipient_name}
-   - A creative excuse that fits the seriousness level
-   - Acknowledgment of the situation
-   - A brief explanation or reason
-   - Next steps or resolution
-   - Professional sign-off from {request.sender_name}
-4. Keep the email body under 200 words
-5. Match the tone exactly: {request.tone}
-6. Seriousness level {request.seriousness}/5: {seriousness_map[request.seriousness]}
+Create a {request.tone.lower()} email with:
+- A brief subject line
+- Greeting to {request.recipient_name}
+- Creative excuse for {category_context[request.category]}
+- Brief explanation
+- Sign-off from {request.sender_name}
 
-Output ONLY valid JSON in this exact format with no additional text:
-{{"subject": "...", "body": "..."}}"""
+Respond ONLY with valid JSON (no other text):
+{{"subject": "your subject here", "body": "your email here"}}"""
     
     return prompt
 
@@ -269,6 +261,30 @@ def parse_llm_response(response_data: Dict[str, Any]) -> Dict[str, str]:
         logger.error(f"❌ Could not find content in response: {response_data}")
         raise ValueError("Could not extract content from LLM response")
     
+    # Handle case where content is a list (some LLM APIs return lists)
+    if isinstance(content, list):
+        if len(content) > 0:
+            content = content[0]
+        else:
+            raise ValueError("Content is an empty list")
+    
+    # Handle case where content is a dict with 'reasoning' and 'summary' structure
+    if isinstance(content, dict):
+        # Check for reasoning/summary structure
+        if 'summary' in content and isinstance(content['summary'], list):
+            for item in content['summary']:
+                if isinstance(item, dict) and 'text' in item:
+                    content = item['text']
+                    logger.info("✓ Extracted text from summary structure")
+                    break
+        # If still a dict, convert to string
+        if isinstance(content, dict):
+            content = str(content)
+    
+    # Ensure content is a string
+    if not isinstance(content, str):
+        content = str(content)
+    
     logger.info(f"📄 Extracted content: {content[:100]}...")
     
     # Try to parse as JSON
@@ -282,6 +298,38 @@ def parse_llm_response(response_data: Dict[str, Any]) -> Dict[str, str]:
         if content.endswith("```"):
             content = content[:-3]
         content = content.strip()
+        
+        # Try to extract JSON from the content if it's embedded in text
+        import re
+        
+        # Find all positions where { appears followed eventually by "subject" and "body"
+        # Use a more permissive pattern that allows for nested content
+        json_pattern = r'\{\s*"(?:subject|body)"[^}]*"(?:body|subject)"[^}]*\}'
+        matches = list(re.finditer(json_pattern, content, re.DOTALL))
+        
+        if matches:
+            # Use the last match (most likely to be the actual response)
+            extracted = matches[-1].group(0)
+            logger.info(f"✓ Extracted JSON from response: {extracted[:100]}...")
+            content = extracted
+        else:
+            # Try to find JSON by looking for the last opening brace before "subject"
+            subject_pos = content.rfind('"subject"')
+            if subject_pos > 0:
+                # Find the last { before "subject"
+                brace_start = content.rfind('{', 0, subject_pos)
+                if brace_start >= 0:
+                    # Find the matching closing brace
+                    brace_count = 0
+                    for i in range(brace_start, len(content)):
+                        if content[i] == '{':
+                            brace_count += 1
+                        elif content[i] == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                content = content[brace_start:i+1]
+                                logger.info(f"✓ Extracted JSON using brace matching: {content[:100]}...")
+                                break
         
         parsed = json.loads(content)
         
